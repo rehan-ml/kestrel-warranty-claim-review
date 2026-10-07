@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kestrel Warranty Review</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <p class="eyebrow">Kestrel Home Operations</p>
+        <h1>Warranty claim review</h1>
+        <p class="subtitle">Prioritise suspicious claims for human review. Never auto-reject a customer.</p>
+      </div>
+      <span class="mode">{{ model_mode }}</span>
+    </header>
+
+    <section class="grid">
+      <form id="claim-form" class="card form-card">
+        <h2>Claim details</h2>
+        <div class="fields">
+          <label>Submitted at<input name="submitted_at" type="datetime-local" value="2026-07-04T10:30" required></label>
+          <label>Partner ID<input name="partner_id" value="DEMO-PARTNER" required></label>
+          <label>SKU<input name="sku" value="DEMO-SKU" required></label>
+          <label>Product serial<input name="product_serial" value="DEMO123456" required></label>
+          <label>Days since purchase<input name="days_since_purchase" type="number" value="90" min="0" required></label>
+          <label>Claim amount (Rs)<input name="claim_amount_inr" type="number" value="1499" min="0" step="1" required></label>
+          <label>Photo attached<select name="photo_attached"><option>Y</option><option selected>N</option></select></label>
+          <label>Partner inspected<select name="partner_inspected"><option>Y</option><option selected>N</option></select></label>
+          <label>Prior claims<input name="customer_prior_claims" type="number" value="1" min="0" required></label>
+          <label>Source<select name="source"><option selected>crm</option><option>legacy_zoho</option></select></label>
+          <label class="wide">Claim description<input name="claim_description" value="unit not heating" required></label>
+          <label class="wide">Inspector note<input name="inspector_note" value=""></label>
+        </div>
+        <button type="submit">Review claim</button>
+      </form>
+
+      <section class="card result-card" aria-live="polite">
+        <p class="eyebrow">Decision support</p>
+        <div id="empty-state">
+          <h2>Ready for a claim</h2>
+          <p>Submit the form to call the JSON endpoint and see the score, recommendation and readable reasons.</p>
+        </div>
+        <div id="result" hidden>
+          <div class="score-row"><span>Fraud score</span><strong id="score">-</strong></div>
+          <div id="decision" class="decision">-</div>
+          <h3>Why this result</h3>
+          <ul id="reasons"></ul>
+          <p id="warning" class="warning"></p>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script>
+    const form = document.getElementById('claim-form');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const raw = Object.fromEntries(new FormData(form).entries());
+      ['days_since_purchase', 'claim_amount_inr', 'customer_prior_claims'].forEach(k => raw[k] = Number(raw[k]));
+      raw.inspector_note = raw.inspector_note || null;
+      const response = await fetch('/api/predict', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(raw)
+      });
+      const data = await response.json();
+      if (!response.ok) { alert(data.error || 'Could not score the claim'); return; }
+      document.getElementById('empty-state').hidden = true;
+      document.getElementById('result').hidden = false;
+      document.getElementById('score').textContent = (100 * data.fraud_score).toFixed(1) + '%';
+      const decision = document.getElementById('decision');
+      decision.textContent = data.recommendation === 'manual_review' ? 'Send to manual review' : 'Continue normal processing';
+      decision.className = 'decision ' + (data.recommendation === 'manual_review' ? 'review' : 'normal');
+      document.getElementById('reasons').innerHTML = data.reasons.map(x => `<li>${x}</li>`).join('');
+      document.getElementById('warning').textContent = data.warning;
+    });
+  </script>
+</body>
+</html>
+

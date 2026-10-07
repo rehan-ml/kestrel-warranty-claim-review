@@ -1,0 +1,18 @@
+# Supplied client data and derived sensitive artifacts must not be public.
+data/*
+!data/README.md
+artifacts/*
+!artifacts/.gitkeep
+*.mp4
+
+# Local Python files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+
+# Working analysis is not part of the public submission.
+analysis/
+
